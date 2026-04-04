@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -15,10 +15,14 @@ app.use(cors());
 const URL = process.env.DATABASE_URL
 
 const client = new MongoClient(URL);
+
+let db;
 const run = async() => {
     try{
         await client.connect();
     console.log('connected successfully to db')
+
+     db = client.db("precapstone");
     }catch(err){
         console.log("failed to connect to db", err)
     }
@@ -26,6 +30,61 @@ const run = async() => {
 
 run();
 
+app.post('/api/users', async(req, res) => {
+    try{
+        const users = db.collection("users")
+        const results = await users.insertOne(req.body);
+
+        res.status(201).json({
+            message: "inserted successfully!",
+            id: results.insertedId
+        });
+    }catch(err){
+        res.status(500).json({ error: err.message });
+    }
+})
+
+app.get('/api/getUsers', async(req, res) => {
+    try{
+        const users = db.collection("users")
+         const getUsers = await users.find().toArray();
+
+         res.json(getUsers);
+    }catch(err){
+        res.status(500).json({ error: err.message });
+    }
+})
+
+app.put('/api/updateUser/:id', async(req, res) => {
+    try{
+        const users = db.collection("users");
+        const updateUser = await users.updateOne({_id: new ObjectId(req.params.id)}, { $set: req.body});
+
+        if(updateUser.matchedCount === 0) {
+            return res.status(404).json({ message: 'user not found'});
+        }
+
+        res.status(201).json({message: "user updated"});
+}catch(err){
+    res.status(500).json({ error: err.message});
+}
+})
+
+app.delete('/api/deleteUser/:id', async(req, res) => {
+    try{
+        const users = db.collection("users");
+        const deleteUser = await users.deleteOne({_id: new ObjectId(req.params.id)}, { $set: req.body});
+
+        if(deleteUser.deletedCount === 0) {
+            return res.status(404).json({ message: 'user not found'});
+        }
+
+        res.json({message: "user deleted"});
+}catch(err){
+    res.status(500).json({ error: err.message});
+}
+})
+
 app.listen(PORT, () => {
-    console.log(` the server is running on port ${PORT}`);
+    console.log(` the server is running on port http://localhost:${PORT}`);
 })
