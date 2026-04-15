@@ -30,10 +30,20 @@ const run = async() => {
 
 run();
 
+//register user
 app.post('/api/users', async(req, res) => {
     try{
         const users = db.collection("users")
-        const results = await users.insertOne(req.body);
+        const {name, email, password, role} = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = {
+            name,
+            email,
+            password: hashedPassword,
+            role
+        }
+        const results = await users.insertOne(newUser);
 
         res.status(201).json({
             message: "inserted successfully!",
@@ -44,6 +54,26 @@ app.post('/api/users', async(req, res) => {
     }
 })
 
+//login 
+app.post('/api/login', async(req, res) => {
+    try{
+        const users = db.collection("users")
+        const { email, password} = req.body;
+        const results = await users.findOne({ email });
+
+        const isMatch = await bcrypt.compare(password, results.password);
+
+        if(!isMatch){
+            return res.status(401).json({ message: "Invalid credentials!"});
+        }else{
+            return res.status(201).json({ message: "logged in succeded!"});
+        }
+    }catch(err){
+        res.status(500).json({ error: err.message });
+    }
+})
+
+//fetch user
 app.get('/api/getUsers', async(req, res) => {
     try{
         const users = db.collection("users")
