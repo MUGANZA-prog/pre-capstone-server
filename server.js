@@ -61,13 +61,22 @@ app.post('/api/login', async(req, res) => {
         const { email, password} = req.body;
         const results = await users.findOne({ email });
 
+        if(!results){
+            return res.status(401).json({ message: "user not found!"})
+        }
+
         const isMatch = await bcrypt.compare(password, results.password);
 
         if(!isMatch){
             return res.status(401).json({ message: "Invalid credentials!"});
-        }else{
-            return res.status(201).json({ message: "logged in succeded!"});
         }
+
+        const token = jwt.sign(
+            {id: results.id, role: results.role}, 
+            process.env.JWT_SECRET, 
+            {expiresIn: "1h"}
+        );
+        res.json({ token });
     }catch(err){
         res.status(500).json({ error: err.message });
     }
