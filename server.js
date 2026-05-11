@@ -4,6 +4,33 @@ const { MongoClient, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+
+dotenv.config
+
+//cloudinary configuration
+
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET,
+});
+
+//multer configuration 
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/"); // or any folder you want
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + "-" + file.originalname);
+    }
+});
+
+const upload = multer({ storage });
+
+
 
 const PORT = 8000;
 const app = express();
@@ -79,6 +106,39 @@ app.post('/api/login', async(req, res) => {
         res.json({ token });
     }catch(err){
         res.status(500).json({ error: err.message });
+    }
+})
+
+//upload item to the database
+
+app.post('/api/UploadItem', upload.single('image'), async(req, res) => {
+    try {
+        const item = db.collection("items");
+
+        const filePath = req.file.path || `${req.file.destination}${req.file.filename}`;
+
+         const result = await cloudinary.uploader.upload( filePath, {
+            folder: "items"
+        });
+
+        const newItems = {
+            image: result.secure_url, 
+            description: req.body.description,
+            price: req.body.price
+        };
+
+        const savedItems = await item.insertOne(newItems);
+
+        res.status(201).json({
+            message: "Item uploaded successfully",
+            data:  {
+                ...newItems,
+                _id: savedItems.insertedId
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: "failed to upload item", error: error.message })
     }
 })
 
