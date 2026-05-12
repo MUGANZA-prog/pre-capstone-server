@@ -6,8 +6,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const path = require('path');
+dotenv.config();
 
-dotenv.config
 
 //cloudinary configuration
 
@@ -34,7 +35,6 @@ const upload = multer({ storage });
 
 const PORT = 8000;
 const app = express();
-dotenv.config();
 
 app.use(express.json());
 app.use(cors());
@@ -114,12 +114,10 @@ app.post('/api/login', async(req, res) => {
 app.post('/api/UploadItem', upload.single('image'), async(req, res) => {
     try {
         const item = db.collection("items");
-
-        const filePath = req.file.path || `${req.file.destination}${req.file.filename}`;
-
-         const result = await cloudinary.uploader.upload( filePath, {
-            folder: "items"
-        });
+         const filePath = path.resolve(req.file.path)
+         const result = await cloudinary.uploader.upload( filePath);
+         const fs = require("fs");
+         fs.unlinkSync(filePath);
 
         const newItems = {
             image: result.secure_url, 
@@ -138,10 +136,26 @@ app.post('/api/UploadItem', upload.single('image'), async(req, res) => {
         });
 
     } catch (error) {
+        //error handling
+         console.log("❌ FULL ERROR:", error);
+         console.log("❌ ERROR MESSAGE:", error.message);
         res.status(500).json({ message: "failed to upload item", error: error.message })
+
     }
 })
 
+//fetch items
+
+app.get('/api/getItems', async(req, res) => {
+    try{
+        const items = db.collection("items")
+         const getItems = await items.find().toArray();
+
+         res.json(getItems);
+    }catch(err){
+        res.status(500).json({ error: err.message });
+    }
+})
 //fetch user
 app.get('/api/getUsers', async(req, res) => {
     try{
@@ -183,6 +197,8 @@ app.delete('/api/deleteUser/:id', async(req, res) => {
     res.status(500).json({ error: err.message});
 }
 })
+
+
 
 app.listen(PORT, () => {
     console.log(` the server is running on port http://localhost:${PORT}`);
